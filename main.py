@@ -158,7 +158,7 @@ async def _upload_file_to_supabase(local_file_path: str, sender_uid: str, is_vid
         # Generate unique filename for Supabase storage
         file_id = str(uuid.uuid4())
         file_extension = file_path.suffix
-        storage_bucket = "videos" if is_video else "images"
+        storage_bucket = "videos"  # Always use videos bucket
         storage_path = f"{storage_bucket}/{sender_uid}/{file_id}{file_extension}"
 
         # Read file
