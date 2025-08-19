@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+gradio_client
+python-dotenv
+python-multipart
+firebase-admin
+flask
+requests
+supabase
+Pillow
+pytz
+
