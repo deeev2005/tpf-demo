@@ -59,7 +59,6 @@ async def health_check():
 @app.post("/generate/")
 async def store_and_share_file(
     file: UploadFile = File(...),
-    prompt: str = Form(...),
     sender_uid: str = Form(...),
     receiver_uids: str = Form(...)
 ):
@@ -82,12 +81,8 @@ async def store_and_share_file(
         if not (is_image or is_video):
             logger.warning(f"Invalid file - Content-Type: {content_type}, Filename: {filename}")
             raise HTTPException(status_code=400, detail="File must be an image or video")
-        
-        if len(prompt.strip()) == 0:
-            raise HTTPException(status_code=400, detail="Prompt cannot be empty")
 
         logger.info(f"Starting file storage for user {sender_uid}")
-        logger.info(f"Prompt: {prompt}")
         logger.info(f"Receivers: {receiver_uids}")
         logger.info(f"File info - Content-Type: {content_type}, Filename: {filename}")
         logger.info(f"File type detected: {'video' if is_video else 'image'}")
@@ -124,7 +119,7 @@ async def store_and_share_file(
 
         # Save chat messages to Firebase for each receiver
         receiver_list = [uid.strip() for uid in receiver_uids.split(",") if uid.strip()]
-        await _save_chat_messages_to_firebase(sender_uid, receiver_list, file_url, prompt, is_video)
+        await _save_chat_messages_to_firebase(sender_uid, receiver_list, file_url, is_video)
 
         return JSONResponse({
             "success": True,
@@ -206,7 +201,7 @@ async def _upload_file_to_supabase(local_file_path: str, sender_uid: str, is_vid
         logger.error(f"Failed to upload file to Supabase: {e}")
         raise Exception(f"Storage upload failed: {str(e)}")
 
-async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, file_url: str, prompt: str, is_video: bool):
+async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, file_url: str, is_video: bool):
     """Save chat messages with file URL to Firebase for each receiver"""
     try:
         import firebase_admin
@@ -244,7 +239,7 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                 message_data = {
                     "senderId": sender_uid,
                     "receiverId": receiver_id,
-                    "text": prompt,  # The prompt as message text
+                    "text": "",  # Empty text since no prompt
                     "messageType": media_type,  # Message type - video or image
                     "timestamp": timestamp,
                     "isRead": False,
@@ -280,7 +275,7 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                 chat_data = {
                     "participants": [sender_uid, receiver_id],
                     "participantIds": chat_participants,
-                    "lastMessage": prompt,
+                    "lastMessage": "",  # Empty since no prompt
                     "lastMessageType": media_type,
                     "lastMessageTimestamp": timestamp,
                     "lastSenderId": sender_uid,
@@ -307,7 +302,7 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                 if chat_doc.exists:
                     # Update existing chat
                     update_data = {
-                        "lastMessage": prompt,
+                        "lastMessage": "",  # Empty since no prompt
                         "lastMessageType": media_type,
                         "lastMessageTimestamp": timestamp,
                         "lastSenderId": sender_uid,
