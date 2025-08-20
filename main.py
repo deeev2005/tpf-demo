@@ -82,8 +82,7 @@ async def store_and_share_file(
             logger.warning(f"Invalid file - Content-Type: {content_type}, Filename: {filename}")
             raise HTTPException(status_code=400, detail="File must be an image or video")
 
-        logger.info(f"Starting file storage for user {sender_uid}")
-        logger.info(f"Receivers: {receiver_uids}")
+        logger.info("Starting file storage process")
         logger.info(f"File info - Content-Type: {content_type}, Filename: {filename}")
         logger.info(f"File type detected: {'video' if is_video else 'image'}")
 
@@ -101,7 +100,7 @@ async def store_and_share_file(
             content = await file.read()
             buffer.write(content)
 
-        logger.info(f"File saved to {temp_file_path}")
+        logger.info("File saved to temporary location")
 
         # Validate file size (optional)
         file_size = temp_file_path.stat().st_size
@@ -115,7 +114,7 @@ async def store_and_share_file(
         # Upload file to Supabase storage
         file_url = await _upload_file_to_supabase(str(temp_file_path), sender_uid, is_video)
         
-        logger.info(f"File uploaded to Supabase: {file_url}")
+        logger.info("File uploaded to Supabase successfully")
 
         # Save chat messages to Firebase for each receiver
         receiver_list = [uid.strip() for uid in receiver_uids.split(",") if uid.strip()]
@@ -144,9 +143,9 @@ async def store_and_share_file(
         if temp_file_path and Path(temp_file_path).exists():
             try:
                 Path(temp_file_path).unlink()
-                logger.info(f"Cleaned up temp file: {temp_file_path}")
+                logger.info("Cleaned up temporary file")
             except Exception as e:
-                logger.warning(f"Failed to cleanup temp file {temp_file_path}: {e}")
+                logger.warning(f"Failed to cleanup temp file: {e}")
 
 async def _upload_file_to_supabase(local_file_path: str, sender_uid: str, is_video: bool) -> str:
     """Upload file to Supabase storage and return public URL"""
@@ -165,7 +164,7 @@ async def _upload_file_to_supabase(local_file_path: str, sender_uid: str, is_vid
         with open(file_path, "rb") as file_data:
             file_content = file_data.read()
 
-        logger.info(f"Uploading file to Supabase: {storage_path}")
+        logger.info("Uploading file to Supabase storage")
 
         # Upload to Supabase storage
         try:
@@ -177,7 +176,7 @@ async def _upload_file_to_supabase(local_file_path: str, sender_uid: str, is_vid
                     "cache-control": "3600"
                 }
             )
-            logger.info(f"Upload result: {result}")
+            logger.info("Upload completed successfully")
             
         except Exception as upload_error:
             logger.error(f"Upload failed: {upload_error}")
@@ -186,7 +185,7 @@ async def _upload_file_to_supabase(local_file_path: str, sender_uid: str, is_vid
         # Get public URL
         try:
             url_result = supabase.storage.from_(storage_bucket).get_public_url(storage_path)
-            logger.info(f"Generated public URL: {url_result}")
+            logger.info("Generated public URL successfully")
             
             if not url_result:
                 raise Exception("Failed to get public URL")
@@ -233,7 +232,7 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                 continue
                 
             try:
-                logger.info(f"Processing message for receiver: {receiver_id}")
+                logger.info("Processing message for receiver")
                 
                 # Create message document with all required fields
                 message_data = {
@@ -260,12 +259,12 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                 # Save message to chats/{receiver_id}/messages/ collection
                 doc_ref = db.collection("chats").document(receiver_id).collection("messages").add(message_data)
                 message_id = doc_ref[1].id
-                logger.info(f"{media_type.capitalize()} message saved to chats/{receiver_id}/messages/ with ID: {message_id}")
+                logger.info(f"{media_type.capitalize()} message saved to receiver's messages collection")
                 
                 # Also save to sender's chat collection for their own reference
                 doc_ref_sender = db.collection("chats").document(sender_uid).collection("messages").add(message_data)
                 sender_message_id = doc_ref_sender[1].id
-                logger.info(f"{media_type.capitalize()} message saved to chats/{sender_uid}/messages/ with ID: {sender_message_id}")
+                logger.info(f"{media_type.capitalize()} message saved to sender's messages collection")
                 
                 # Create or update chat document
                 chat_participants = sorted([sender_uid, receiver_id])
@@ -320,7 +319,7 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                         update_data["hasUnreadImage"] = True
                     
                     chat_ref.update(update_data)
-                    logger.info(f"Updated existing chat with {media_type}: {chat_id}")
+                    logger.info(f"Updated existing chat with {media_type}")
                 else:
                     # Create new chat
                     chat_data["createdAt"] = timestamp
@@ -329,10 +328,10 @@ async def _save_chat_messages_to_firebase(sender_uid: str, receiver_list: list, 
                         receiver_id: 1
                     }
                     chat_ref.set(chat_data)
-                    logger.info(f"Created new chat with {media_type}: {chat_id}")
+                    logger.info(f"Created new chat with {media_type}")
                 
             except Exception as e:
-                logger.error(f"Failed to save {media_type} message for receiver {receiver_id}: {e}")
+                logger.error(f"Failed to save {media_type} message for receiver: {e}")
                 continue  # Continue with other receivers even if one fails
         
         logger.info(f"Successfully saved all {media_type} messages with URLs to Firebase")
